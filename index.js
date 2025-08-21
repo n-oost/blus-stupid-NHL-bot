@@ -177,20 +177,41 @@ function startGameUpdateChecker(intervalMs = 60000) {
 }
 
 /**
+ * Check if today is within the NHL season (October 1 to June 30)
+ * @returns {boolean}
+ */
+function isHockeySeason() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // JS months are 0-based
+  const day = now.getDate();
+  // Regular season: October 1 (10/1) to June 30 (6/30) of next year
+  // If month is 7, 8, or 9 (July, August, September), it's off-season
+  if (month >= 10 || month <= 6) {
+    // If it's June, only include up to June 30
+    if (month === 6 && day > 30) return false;
+    return true;
+  }
+  return false;
+}
+
+/**
  * Check for game updates and post to configured channels
  */
 async function checkForGameUpdates() {
+  if (!isHockeySeason()) {
+    // Optionally log or notify that it's off-season
+    console.log('Skipping NHL API check: not hockey season.');
+    return;
+  }
   try {
     // Get current Leafs game
     const currentGame = await getCurrentLeafsGame();
-    
     // If no game in progress, don't do anything
     if (!currentGame) {
       return;
     }
-    
     const gameId = currentGame.gamePk;
-    
     // Start tracking game if not already
     if (!activeGames.has(gameId)) {
       activeGames.set(gameId, {
@@ -202,22 +223,17 @@ async function checkForGameUpdates() {
         scoreChanges: []
       });
     }
-    
     // Get detailed game status
     const gameStatus = await getGameStatus(gameId);
     if (!gameStatus) return;
-    
     const formattedGame = formatGameData(currentGame);
     const gameTracker = activeGames.get(gameId);
-    
     // Check for score changes
     const homeScore = gameStatus.teams.home.goals;
     const awayScore = gameStatus.teams.away.goals;
     const currentPeriod = gameStatus.currentPeriodOrdinal;
     const timeRemaining = gameStatus.currentPeriodTimeRemaining;
-    
     let update = null;
-    
     // Score change
     if (homeScore !== gameTracker.lastHomeScore || awayScore !== gameTracker.lastAwayScore) {
       update = {
@@ -244,11 +260,9 @@ async function checkForGameUpdates() {
         formattedGame,
         logos: getTeamLogos(currentGame)
       };
-      
       // Stop tracking game
       activeGames.delete(gameId);
     }
-    
     // Update tracker
     if (activeGames.has(gameId)) {
       const tracker = activeGames.get(gameId);
@@ -259,12 +273,10 @@ async function checkForGameUpdates() {
       tracker.lastUpdate = Date.now();
       activeGames.set(gameId, tracker);
     }
-    
     // Send updates to all configured channels if there's an update
     if (update) {
       await sendGameUpdateToChannels(update);
     }
-    
   } catch (error) {
     console.error('Error checking for game updates:', error);
   }
