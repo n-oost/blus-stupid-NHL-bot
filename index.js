@@ -65,26 +65,25 @@ client.on(Events.InteractionCreate, async interaction => {
 
   // Test command
   if (commandName === 'test') {
-    await interaction.reply({
-      content: `Hello! The bot is working properly! 🏒`,
-      ephemeral: false
+    await interaction.deferReply({ ephemeral: false });
+    await interaction.editReply({
+      content: `Hello! The bot is working properly! 🏒`
     });
   }
   // Simulate Leafs goal command
   else if (commandName === 'simulate-leafs-goal') {
+    await interaction.deferReply({ ephemeral: true });
     // Only allow server admins to use this command
     if (!interaction.memberPermissions || !interaction.memberPermissions.has('Administrator')) {
-      return interaction.reply({
-        content: 'You must be a server administrator to use this command.',
-        ephemeral: true
+      return await interaction.editReply({
+        content: 'You must be a server administrator to use this command.'
       });
     }
     // Find the configured channel for this guild
     const channelId = configuredChannels.get(interaction.guild.id);
     if (!channelId) {
-      return interaction.reply({
-        content: 'No channel is configured for Leafs updates. Use /setup-leafs-updates first.',
-        ephemeral: true
+      return await interaction.editReply({
+        content: 'No channel is configured for Leafs updates. Use /setup-leafs-updates first.'
       });
     }
     // Create a fake update
@@ -110,50 +109,44 @@ client.on(Events.InteractionCreate, async interaction => {
     };
     try {
       await interaction.client.channels.cache.get(channelId).send({ embeds: [embed] });
-      await interaction.reply({ content: 'Simulated Leafs goal update sent!', ephemeral: true });
+      await interaction.editReply({ content: 'Simulated Leafs goal update sent!' });
     } catch (error) {
       console.error('Error sending simulated update:', error);
-      await interaction.reply({ content: 'Failed to send simulated update. Check bot permissions.', ephemeral: true });
+      await interaction.editReply({ content: 'Failed to send simulated update. Check bot permissions.' });
     }
   }
   
   // Setup Leafs updates command
   else if (commandName === 'setup-leafs-updates') {
+    await interaction.deferReply({ ephemeral: false });
     const channel = interaction.options.getChannel('channel');
-    
     // Check if the channel is a text channel
     if (!channel.isTextBased()) {
-      return interaction.reply({
-        content: `⚠️ ${channel} is not a text channel. Please select a text channel.`,
-        ephemeral: true
+      return await interaction.editReply({
+        content: `⚠️ ${channel} is not a text channel. Please select a text channel.`
       });
     }
-    
     // Configure the channel
     configuredChannels.set(interaction.guild.id, channel.id);
-    
-    await interaction.reply({
-      content: `✅ Maple Leafs game updates will now be posted to ${channel}! You'll receive updates for goals, period changes, and game results.`,
-      ephemeral: false
+    await interaction.editReply({
+      content: `✅ Maple Leafs game updates will now be posted to ${channel}! You'll receive updates for goals, period changes, and game results.`
     });
   }
   
   // Stop Leafs updates command
   else if (commandName === 'stop-leafs-updates') {
+    await interaction.deferReply({ ephemeral: false });
     const removed = configuredChannels.delete(interaction.guild.id);
-    
-    await interaction.reply({
+    await interaction.editReply({
       content: removed 
         ? `✅ Maple Leafs game updates have been stopped for this server.` 
-        : `⚠️ This server was not configured for Maple Leafs game updates.`,
-      ephemeral: false
+        : `⚠️ This server was not configured for Maple Leafs game updates.`
     });
   }
   
   // Next Leafs game command
   else if (commandName === 'next-leafs-game') {
     await interaction.deferReply();
-    
     try {
       const embed = await getNextGameEmbed();
       await interaction.editReply({ embeds: [embed] });
