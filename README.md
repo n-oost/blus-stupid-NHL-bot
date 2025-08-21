@@ -1,13 +1,82 @@
-# Getting Started app for Discord
+# Blus Stupid NHL Bot
 
-This project contains a basic rock-paper-scissors-style Discord app written in JavaScript, built for the [getting started guide](https://discord.com/developers/docs/getting-started).
+A Discord bot that posts Toronto Maple Leafs game updates to a designated channel. Get real-time score updates, period changes, and game results during Leafs games!
 
 ![Demo of app](https://github.com/discord/discord-example-app/raw/main/assets/getting-started-demo.gif?raw=true)
 
-## Project structure
-Below is a basic overview of the project structure:
+## Features
+
+- 🏒 Real-time Toronto Maple Leafs game updates
+- 🚨 Goal notifications with team logos and score details
+- 🔄 Period change notifications
+- 🏁 Final game result announcements
+- 📅 Check the next scheduled Leafs game
+
+## Setup Instructions
+
+### Prerequisites
+
+1. [Create a Discord application](https://discord.com/developers/applications)
+2. Enable the bot user for your application
+3. Get your application ID and bot token from the Discord Developer Portal
+4. Generate a public key for your application
+
+### Installation
+
+1. Clone this repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Create a `.env` file in the root directory with the following variables:
+   ```
+   APP_ID=your_app_id
+   DISCORD_TOKEN=your_bot_token
+   PUBLIC_KEY=your_public_key
+   ```
+
+### Running the Bot
+
+1. Register the commands with Discord:
+   ```
+   npm run register
+   ```
+2. Start the bot:
+   ```
+   npm start
+   ```
+
+## Discord Commands
+
+- `/setup-leafs-updates` - Configure which channel to post Maple Leafs game updates to
+- `/stop-leafs-updates` - Stop posting game updates in this server
+- `/next-leafs-game` - Get information about the next Toronto Maple Leafs game
+- `/test` - Basic test command to check if the bot is working
+
+## How It Works
+
+The bot checks the NHL API every minute during Maple Leafs games to detect:
+- Score changes
+- Period changes
+- Game start/end
+
+When an update is detected, the bot posts a formatted message to the configured channel with details about the current game status.
+
+## Project Structure
 
 ```
+blus-stupid-NHL-bot/
+├── app.js             # Main application entry point
+├── commands.js        # Discord slash command definitions
+├── nhl-api.js         # NHL API integration functions
+├── leafs-updates.js   # Game update tracking and notification system
+├── utils.js           # Utility functions
+└── package.json       # Project dependencies
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 ├── examples    -> short, feature-specific sample apps
 │   ├── app.js  -> finished app.js code
 │   ├── button.js
