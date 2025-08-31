@@ -43,14 +43,7 @@ const commands = [
     
   new SlashCommandBuilder()
     .setName('next-leafs-game')
-<<<<<<< HEAD
     .setDescription('Get information about the next Toronto Maple Leafs game')
-=======
-    .setDescription('Get information about the next Toronto Maple Leafs game'),
-  new SlashCommandBuilder()
-    .setName('simulate-leafs-goal')
-    .setDescription('Simulate a Leafs goal update for testing (admin only)')
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
 ];
 
 // When the client is ready, run this code (only once)
@@ -69,7 +62,6 @@ client.on(Events.InteractionCreate, async interaction => {
 
   // Test command
   if (commandName === 'test') {
-<<<<<<< HEAD
     await interaction.reply({
       content: `Hello! The bot is working properly! 🏒`,
       ephemeral: false
@@ -94,79 +86,11 @@ client.on(Events.InteractionCreate, async interaction => {
     await interaction.reply({
       content: `✅ Maple Leafs game updates will now be posted to ${channel}! You'll receive updates for goals, period changes, and game results.`,
       ephemeral: false
-=======
-    await interaction.deferReply({ ephemeral: false });
-    await interaction.editReply({
-      content: `Hello! The bot is working properly! 🏒`
-    });
-  }
-  // Simulate Leafs goal command
-  else if (commandName === 'simulate-leafs-goal') {
-    await interaction.deferReply({ ephemeral: true });
-    // Only allow server admins to use this command
-    if (!interaction.memberPermissions || !interaction.memberPermissions.has('Administrator')) {
-      return await interaction.editReply({
-        content: 'You must be a server administrator to use this command.'
-      });
-    }
-    // Find the configured channel for this guild
-    const channelId = configuredChannels.get(interaction.guild.id);
-    if (!channelId) {
-      return await interaction.editReply({
-        content: 'No channel is configured for Leafs updates. Use /setup-leafs-updates first.'
-      });
-    }
-    // Create a fake update
-    const update = {
-      type: 'SCORE_UPDATE',
-      message: '🚨 GOAL! Toronto Maple Leafs 1 - 0 Montreal Canadiens',
-      formattedGame: {
-        awayTeam: 'Montreal Canadiens',
-        homeTeam: 'Toronto Maple Leafs',
-      },
-      logos: {
-        home: 'https://www-league.nhlstatic.com/images/logos/teams-current-primary-light/10.svg',
-        away: 'https://www-league.nhlstatic.com/images/logos/teams-current-primary-light/8.svg',
-      }
-    };
-    // Send the update to the configured channel
-    const embed = {
-      title: update.message,
-      color: 0x1976D2,
-      description: `${update.formattedGame.awayTeam} vs ${update.formattedGame.homeTeam}`,
-      thumbnail: { url: update.logos.home },
-      footer: { text: 'Simulated update for testing' }
-    };
-    try {
-      await interaction.client.channels.cache.get(channelId).send({ embeds: [embed] });
-      await interaction.editReply({ content: 'Simulated Leafs goal update sent!' });
-    } catch (error) {
-      console.error('Error sending simulated update:', error);
-      await interaction.editReply({ content: 'Failed to send simulated update. Check bot permissions.' });
-    }
-  }
-  
-  // Setup Leafs updates command
-  else if (commandName === 'setup-leafs-updates') {
-    await interaction.deferReply({ ephemeral: false });
-    const channel = interaction.options.getChannel('channel');
-    // Check if the channel is a text channel
-    if (!channel.isTextBased()) {
-      return await interaction.editReply({
-        content: `⚠️ ${channel} is not a text channel. Please select a text channel.`
-      });
-    }
-    // Configure the channel
-    configuredChannels.set(interaction.guild.id, channel.id);
-    await interaction.editReply({
-      content: `✅ Maple Leafs game updates will now be posted to ${channel}! You'll receive updates for goals, period changes, and game results.`
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     });
   }
   
   // Stop Leafs updates command
   else if (commandName === 'stop-leafs-updates') {
-<<<<<<< HEAD
     const removed = configuredChannels.delete(interaction.guild.id);
     
     await interaction.reply({
@@ -174,24 +98,13 @@ client.on(Events.InteractionCreate, async interaction => {
         ? `✅ Maple Leafs game updates have been stopped for this server.` 
         : `⚠️ This server was not configured for Maple Leafs game updates.`,
       ephemeral: false
-=======
-    await interaction.deferReply({ ephemeral: false });
-    const removed = configuredChannels.delete(interaction.guild.id);
-    await interaction.editReply({
-      content: removed 
-        ? `✅ Maple Leafs game updates have been stopped for this server.` 
-        : `⚠️ This server was not configured for Maple Leafs game updates.`
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     });
   }
   
   // Next Leafs game command
   else if (commandName === 'next-leafs-game') {
     await interaction.deferReply();
-<<<<<<< HEAD
     
-=======
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     try {
       const embed = await getNextGameEmbed();
       await interaction.editReply({ embeds: [embed] });
@@ -215,7 +128,6 @@ function startGameUpdateChecker(intervalMs = 60000) {
 }
 
 /**
-<<<<<<< HEAD
  * Check for game updates and post to configured channels
  */
 async function checkForGameUpdates() {
@@ -223,49 +135,13 @@ async function checkForGameUpdates() {
     // Get current Leafs game
     const currentGame = await getCurrentLeafsGame();
     
-=======
- * Check if today is within the NHL season (October 1 to June 30)
- * @returns {boolean}
- */
-function isHockeySeason() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // JS months are 0-based
-  const day = now.getDate();
-  // Regular season: October 1 (10/1) to June 30 (6/30) of next year
-  // If month is 7, 8, or 9 (July, August, September), it's off-season
-  if (month >= 10 || month <= 6) {
-    // If it's June, only include up to June 30
-    if (month === 6 && day > 30) return false;
-    return true;
-  }
-  return false;
-}
-
-/**
- * Check for game updates and post to configured channels
- */
-async function checkForGameUpdates() {
-  if (!isHockeySeason()) {
-    // Optionally log or notify that it's off-season
-    console.log('Skipping NHL API check: not hockey season.');
-    return;
-  }
-  try {
-    // Get current Leafs game
-    const currentGame = await getCurrentLeafsGame();
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     // If no game in progress, don't do anything
     if (!currentGame) {
       return;
     }
-<<<<<<< HEAD
     
     const gameId = currentGame.gamePk;
     
-=======
-    const gameId = currentGame.gamePk;
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     // Start tracking game if not already
     if (!activeGames.has(gameId)) {
       activeGames.set(gameId, {
@@ -277,7 +153,6 @@ async function checkForGameUpdates() {
         scoreChanges: []
       });
     }
-<<<<<<< HEAD
     
     // Get detailed game status
     const gameStatus = await getGameStatus(gameId);
@@ -286,25 +161,14 @@ async function checkForGameUpdates() {
     const formattedGame = formatGameData(currentGame);
     const gameTracker = activeGames.get(gameId);
     
-=======
-    // Get detailed game status
-    const gameStatus = await getGameStatus(gameId);
-    if (!gameStatus) return;
-    const formattedGame = formatGameData(currentGame);
-    const gameTracker = activeGames.get(gameId);
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     // Check for score changes
     const homeScore = gameStatus.teams.home.goals;
     const awayScore = gameStatus.teams.away.goals;
     const currentPeriod = gameStatus.currentPeriodOrdinal;
     const timeRemaining = gameStatus.currentPeriodTimeRemaining;
-<<<<<<< HEAD
     
     let update = null;
     
-=======
-    let update = null;
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     // Score change
     if (homeScore !== gameTracker.lastHomeScore || awayScore !== gameTracker.lastAwayScore) {
       update = {
@@ -331,17 +195,11 @@ async function checkForGameUpdates() {
         formattedGame,
         logos: getTeamLogos(currentGame)
       };
-<<<<<<< HEAD
       
       // Stop tracking game
       activeGames.delete(gameId);
     }
     
-=======
-      // Stop tracking game
-      activeGames.delete(gameId);
-    }
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     // Update tracker
     if (activeGames.has(gameId)) {
       const tracker = activeGames.get(gameId);
@@ -352,18 +210,12 @@ async function checkForGameUpdates() {
       tracker.lastUpdate = Date.now();
       activeGames.set(gameId, tracker);
     }
-<<<<<<< HEAD
     
-=======
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     // Send updates to all configured channels if there's an update
     if (update) {
       await sendGameUpdateToChannels(update);
     }
-<<<<<<< HEAD
     
-=======
->>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
   } catch (error) {
     console.error('Error checking for game updates:', error);
   }
