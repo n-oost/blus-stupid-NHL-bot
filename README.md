@@ -4,6 +4,11 @@ A Discord bot that posts Toronto Maple Leafs game updates to a designated channe
 
 ## Features
 
+<<<<<<< HEAD
+=======
+## Features
+
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
 - 🏒 Real-time Toronto Maple Leafs game updates
 - 🚨 Goal notifications with team logos and score details
 - 🔄 Period change notifications
@@ -17,9 +22,13 @@ A Discord bot that posts Toronto Maple Leafs game updates to a designated channe
 1. [Create a Discord application](https://discord.com/developers/applications)
 2. Enable the bot user for your application
 3. Get your application ID and bot token from the Discord Developer Portal
+<<<<<<< HEAD
 4. Make sure your bot has the following Privileged Gateway Intents enabled:
    - Message Content Intent
    - Server Members Intent
+=======
+4. Generate a public key for your application
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
 
 ### Installation
 
@@ -32,6 +41,7 @@ A Discord bot that posts Toronto Maple Leafs game updates to a designated channe
    ```
    APP_ID=your_app_id
    DISCORD_TOKEN=your_bot_token
+<<<<<<< HEAD
    ```
 
 ### Inviting the Bot to Your Server
@@ -54,6 +64,16 @@ A Discord bot that posts Toronto Maple Leafs game updates to a designated channe
 1. Register the slash commands with Discord:
    ```
    npm run deploy
+=======
+   PUBLIC_KEY=your_public_key
+   ```
+
+### Running the Bot
+
+1. Register the commands with Discord:
+   ```
+   npm run register
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
    ```
 2. Start the bot:
    ```
@@ -80,10 +100,18 @@ When an update is detected, the bot posts a formatted message to the configured 
 
 ```
 blus-stupid-NHL-bot/
+<<<<<<< HEAD
 ├── index.js           # Main Discord.js bot file
 ├── deploy-commands.js # Command registration script
 ├── nhl-api.js         # NHL API integration functions
 ├── .env               # Environment variables (create this yourself)
+=======
+├── app.js             # Main application entry point
+├── commands.js        # Discord slash command definitions
+├── nhl-api.js         # NHL API integration functions
+├── leafs-updates.js   # Game update tracking and notification system
+├── utils.js           # Utility functions
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
 └── package.json       # Project dependencies
 ```
 

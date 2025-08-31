@@ -7,12 +7,15 @@ const NHL_API_BASE = 'https://statsapi.web.nhl.com/api/v1';
 // Toronto Maple Leafs team ID in NHL API
 const LEAFS_TEAM_ID = 10;
 
+<<<<<<< HEAD
 // Toggle whether to perform/announce an explicit "season" check.
 // Set ENABLE_SEASON_CHECK=true in your .env to restore the old behaviour that
 // logs and early-returns when there's no scheduled hockey ("not hockey season").
 // By default this is disabled so the bot quietly returns null when no games exist.
 const ENABLE_SEASON_CHECK = process.env.ENABLE_SEASON_CHECK === 'true';
 
+=======
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
 /**
  * Get the next scheduled game for the Toronto Maple Leafs
  * @returns {Promise<Object>} Next game information
@@ -23,12 +26,18 @@ export async function getNextLeafsGame() {
     const data = await response.json();
     
     // Check if there are any games
+<<<<<<< HEAD
       if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
         if (ENABLE_SEASON_CHECK) {
           console.log('Skipping NHL API check: not hockey season (no upcoming games)');
         }
         return null;
       }
+=======
+    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
+      return null;
+    }
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     
     return data.dates[0].games[0];
   } catch (error) {
@@ -77,12 +86,18 @@ export async function getCurrentLeafsGame() {
     const data = await response.json();
     
     // Check if there are any games today
+<<<<<<< HEAD
       if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
         if (ENABLE_SEASON_CHECK) {
           console.log('Skipping NHL API check: not hockey season (no games today)');
         }
         return null;
       }
+=======
+    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
+      return null;
+    }
+>>>>>>> 63dde3e99d6bfc100673bafeddafaa425d0779a3
     
     const game = data.dates[0].games[0];
     
