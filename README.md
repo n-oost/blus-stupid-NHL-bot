@@ -1,13 +1,95 @@
-# Getting Started app for Discord
+# Blus Stupid NHL Bot
 
-This project contains a basic rock-paper-scissors-style Discord app written in JavaScript, built for the [getting started guide](https://discord.com/developers/docs/getting-started).
+A Discord bot that posts Toronto Maple Leafs game updates to a designated channel. Get real-time score updates, period changes, and game results during Leafs games!
 
-![Demo of app](https://github.com/discord/discord-example-app/raw/main/assets/getting-started-demo.gif?raw=true)
+## Features
 
-## Project structure
-Below is a basic overview of the project structure:
+- 🏒 Real-time Toronto Maple Leafs game updates
+- 🚨 Goal notifications with team logos and score details
+- 🔄 Period change notifications
+- 🏁 Final game result announcements
+- 📅 Check the next scheduled Leafs game
+
+## Setup Instructions
+
+### Prerequisites
+
+1. [Create a Discord application](https://discord.com/developers/applications)
+2. Enable the bot user for your application
+3. Get your application ID and bot token from the Discord Developer Portal
+4. Make sure your bot has the following Privileged Gateway Intents enabled:
+   - Message Content Intent
+   - Server Members Intent
+
+### Installation
+
+1. Clone this repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Create a `.env` file in the root directory with the following variables:
+   ```
+   APP_ID=your_app_id
+   DISCORD_TOKEN=your_bot_token
+   ```
+
+### Inviting the Bot to Your Server
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications), select your application
+2. Go to "OAuth2" > "URL Generator"
+3. Select the following scopes:
+   - `bot`
+   - `applications.commands`
+4. Select the following bot permissions:
+   - "Send Messages"
+   - "Embed Links"
+   - "Read Message History"
+   - "Use Slash Commands"
+5. Copy the generated URL and paste it in your browser
+6. Select your Discord server and authorize the bot
+
+### Running the Bot
+
+1. Register the slash commands with Discord:
+   ```
+   npm run deploy
+   ```
+2. Start the bot:
+   ```
+   npm start
+   ```
+
+## Discord Commands
+
+- `/setup-leafs-updates` - Configure which channel to post Maple Leafs game updates to
+- `/stop-leafs-updates` - Stop posting game updates in this server
+- `/next-leafs-game` - Get information about the next Toronto Maple Leafs game
+- `/test` - Basic test command to check if the bot is working
+
+## How It Works
+
+The bot checks the NHL API every minute during Maple Leafs games to detect:
+- Score changes
+- Period changes
+- Game start/end
+
+When an update is detected, the bot posts a formatted message to the configured channel with details about the current game status.
+
+## Project Structure
 
 ```
+blus-stupid-NHL-bot/
+├── index.js           # Main Discord.js bot file
+├── deploy-commands.js # Command registration script
+├── nhl-api.js         # NHL API integration functions
+├── .env               # Environment variables (create this yourself)
+└── package.json       # Project dependencies
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 ├── examples    -> short, feature-specific sample apps
 │   ├── app.js  -> finished app.js code
 │   ├── button.js
