@@ -168,6 +168,15 @@ async function checkForGameUpdates() {
     const timeRemaining = gameStatus.currentPeriodTimeRemaining;
     
     let update = null;
+
+    // Keep formattedGame in sync with live linescore values so embeds show correct scores/time
+    if (formattedGame) {
+      formattedGame.homeScore = homeScore;
+      formattedGame.awayScore = awayScore;
+      formattedGame.period = currentPeriod || formattedGame.period;
+      formattedGame.timeRemaining = timeRemaining || formattedGame.timeRemaining;
+      formattedGame.status = gameStatus?.currentPeriodTimeRemaining === 'Final' ? 'Final' : formattedGame.status;
+    }
     
     // Score change
     if (homeScore !== gameTracker.lastHomeScore || awayScore !== gameTracker.lastAwayScore) {

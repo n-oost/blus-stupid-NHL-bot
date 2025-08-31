@@ -13,6 +13,22 @@ const LEAFS_TEAM_ID = 10;
 // By default this is disabled so the bot quietly returns null when no games exist.
 const ENABLE_SEASON_CHECK = process.env.ENABLE_SEASON_CHECK === 'true';
 
+// Small helper to fetch JSON and handle non-OK responses consistently.
+async function fetchJSON(url) {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'blus-stupid-nhl-bot/1.0' } });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`NHL API error: ${res.status} ${res.statusText} for ${url} -> ${text}`);
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`Network error fetching ${url}:`, err);
+    return null;
+  }
+}
+
 /**
  * Get the next scheduled game for the Toronto Maple Leafs
  * @returns {Promise<Object>} Next game information
@@ -36,6 +52,20 @@ export async function getNextLeafsGame() {
     return null;
   }
 }
+ 
+/**
+ * Get the full live feed for a game (includes scoring plays and detailed liveData)
+ * @param {string|number} gameId
+ */
+export async function getGameFeed(gameId) {
+  try {
+    const url = `${NHL_API_BASE}/game/${gameId}/feed/live`;
+    return await fetchJSON(url);
+  } catch (err) {
+    console.error(`Error fetching game feed for ${gameId}:`, err);
+    return null;
+  }
+}
 
 /**
  * Get current game status for a specific game
@@ -51,6 +81,16 @@ export async function getGameStatus(gameId) {
     return null;
   }
 }
+ 
+export async function getGameStatus(gameId) {
+  try {
+    const url = `${NHL_API_BASE}/game/${gameId}/linescore`;
+    return await fetchJSON(url);
+  } catch (error) {
+    console.error(`Error fetching game status for game ${gameId}:`, error);
+    return null;
+  }
+}
 
 /**
  * Get boxscore information for a specific game (includes detailed stats)
@@ -61,6 +101,16 @@ export async function getGameBoxscore(gameId) {
   try {
     const response = await fetch(`${NHL_API_BASE}/game/${gameId}/boxscore`);
     return await response.json();
+  } catch (error) {
+    console.error(`Error fetching boxscore for game ${gameId}:`, error);
+    return null;
+  }
+}
+ 
+export async function getGameBoxscore(gameId) {
+  try {
+    const url = `${NHL_API_BASE}/game/${gameId}/boxscore`;
+    return await fetchJSON(url);
   } catch (error) {
     console.error(`Error fetching boxscore for game ${gameId}:`, error);
     return null;
@@ -83,6 +133,36 @@ export async function getCurrentLeafsGame() {
     const game = data.dates[0].games[0];
     
     // Check if the game is in progress
+  } catch (error) {
+    console.error('Error checking current Leafs game:', error);
+    return null;
+  }
+}
+ 
+/**
+ * Check if the Leafs are currently playing a game
+ * @returns {Promise<Object|null>} Game object if playing, null if not
+ */
+export async function getCurrentLeafsGame() {
+  try {
+    const url = `${NHL_API_BASE}/schedule?teamId=${LEAFS_TEAM_ID}&expand=schedule.linescore`;
+    const data = await fetchJSON(url);
+    if (!data) return null;
+
+    // Check if there are any games today
+    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
+      if (ENABLE_SEASON_CHECK) console.log('Skipping NHL API check: not hockey season (no games today)');
+      return null;
+    }
+
+    const game = data.dates[0].games[0];
+
+    // Check if the game is in progress
+    if (game.status.abstractGameState === 'Live') {
+      return game;
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error checking current Leafs game:', error);
     return null;
