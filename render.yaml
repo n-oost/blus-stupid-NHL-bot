@@ -1,10 +1,11 @@
 services:
-  - type: worker
+  - type: web
     name: nhl-discord-bot
     env: node
-    plan: starter
+    plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production

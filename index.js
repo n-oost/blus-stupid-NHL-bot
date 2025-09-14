@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials, Events, Collection, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { createServer } from 'http';
 import { 
   getCurrentLeafsGame, 
   getNextLeafsGame, 
@@ -420,6 +421,28 @@ async function getNextGameEmbed() {
   
   return embed;
 }
+
+// Create HTTP server for Render deployment (web service health/port binding)
+const server = createServer((req, res) => {
+  if (req.url === '/' || req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        bot: client.user?.tag || 'starting...',
+        uptime: process.uptime(),
+      })
+    );
+    return;
+  }
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not Found');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`HTTP server running on port ${PORT}`);
+});
 
 // Login to Discord with your app's token
 client.login(process.env.DISCORD_TOKEN);
