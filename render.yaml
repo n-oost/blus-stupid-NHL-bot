@@ -1,0 +1,16 @@
+services:
+  - type: worker
+    name: nhl-discord-bot
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISCORD_TOKEN
+        sync: false  # You'll set this manually in Render dashboard
+      - key: DISCORD_APPLICATION_ID
+        sync: false  # You'll set this manually in Render dashboard
+      - key: DISCORD_PUBLIC_KEY
+        sync: false  # You'll set this manually in Render dashboard
