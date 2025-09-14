@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import fetch from 'node-fetch';
 
-// NHL API base URL
-const NHL_API_BASE = 'https://statsapi.web.nhl.com/api/v1';
+// NHL API base URL (updated to new API)
+const NHL_API_BASE = 'https://api-web.nhle.com/v1';
 
-// Toronto Maple Leafs team ID in NHL API
-const LEAFS_TEAM_ID = 10;
+// Toronto Maple Leafs team abbreviation in new NHL API
+const LEAFS_TEAM_ID = 'TOR';
 
 // Toggle whether to perform/announce an explicit "season" check.
 // Set ENABLE_SEASON_CHECK=true in your .env to restore the old behaviour that
@@ -35,17 +35,21 @@ async function fetchJSON(url) {
  */
 export async function getNextLeafsGame() {
   try {
-    const url = `${NHL_API_BASE}/schedule?teamId=${LEAFS_TEAM_ID}&expand=schedule.broadcasts,schedule.linescore`;
+    const url = `${NHL_API_BASE}/club-schedule/${LEAFS_TEAM_ID}/week/now`;
     const data = await fetchJSON(url);
     if (!data) return null;
 
     // Check if there are any games
-    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
+    if (!data.games || data.games.length === 0) {
       if (ENABLE_SEASON_CHECK) console.log('Skipping NHL API check: not hockey season (no upcoming games)');
       return null;
     }
 
-    return data.dates[0].games[0];
+    // Find the next upcoming game
+    const now = new Date();
+    const nextGame = data.games.find(game => new Date(game.startTimeUTC) > now);
+
+    return nextGame || null;
   } catch (error) {
     console.error('Error fetching next Leafs game:', error);
     return null;
@@ -59,7 +63,7 @@ export async function getNextLeafsGame() {
  */
 export async function getGameStatus(gameId) {
   try {
-    const url = `${NHL_API_BASE}/game/${gameId}/linescore`;
+    const url = `${NHL_API_BASE}/gamecenter/${gameId}/landing`;
     return await fetchJSON(url);
   } catch (error) {
     console.error(`Error fetching game status for game ${gameId}:`, error);
@@ -74,7 +78,7 @@ export async function getGameStatus(gameId) {
  */
 export async function getGameBoxscore(gameId) {
   try {
-    const url = `${NHL_API_BASE}/game/${gameId}/boxscore`;
+    const url = `${NHL_API_BASE}/gamecenter/${gameId}/boxscore`;
     return await fetchJSON(url);
   } catch (error) {
     console.error(`Error fetching boxscore for game ${gameId}:`, error);
@@ -88,24 +92,26 @@ export async function getGameBoxscore(gameId) {
  */
 export async function getCurrentLeafsGame() {
   try {
-    const url = `${NHL_API_BASE}/schedule?teamId=${LEAFS_TEAM_ID}&expand=schedule.linescore`;
+    const url = `${NHL_API_BASE}/club-schedule/${LEAFS_TEAM_ID}/week/now`;
     const data = await fetchJSON(url);
     if (!data) return null;
 
     // Check if there are any games today
-    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
+    if (!data.games || data.games.length === 0) {
       if (ENABLE_SEASON_CHECK) console.log('Skipping NHL API check: not hockey season (no games today)');
       return null;
     }
 
-    const game = data.dates[0].games[0];
-
-    // Check if the game is in progress
-    if (game.status.abstractGameState === 'Live') {
-      return game;
-    }
+    // Find a game that's currently live
+    const now = new Date();
+    const currentGame = data.games.find(game => {
+      const gameStart = new Date(game.startTimeUTC);
+      const gameEnd = new Date(gameStart.getTime() + (4 * 60 * 60 * 1000)); // Assume max 4 hours
+      return gameStart <= now && now <= gameEnd && 
+             (game.gameState === 'LIVE' || game.gameState === 'CRIT');
+    });
     
-    return null;
+    return currentGame || null;
   } catch (error) {
     console.error('Error checking current Leafs game:', error);
     return null;
@@ -118,7 +124,7 @@ export async function getCurrentLeafsGame() {
  */
 export async function getGameFeed(gameId) {
   try {
-    const url = `${NHL_API_BASE}/game/${gameId}/feed/live`;
+    const url = `${NHL_API_BASE}/gamecenter/${gameId}/play-by-play`;
     return await fetchJSON(url);
   } catch (err) {
     console.error(`Error fetching game feed for ${gameId}:`, err);
@@ -134,13 +140,13 @@ export async function getGameFeed(gameId) {
 export function formatGameData(game) {
   if (!game) return null;
   
-  const homeTeam = game.teams.home.team.name;
-  const awayTeam = game.teams.away.team.name;
-  const homeScore = game.teams.home.score;
-  const awayScore = game.teams.away.score;
-  const status = game.status.detailedState;
-  const period = game.linescore?.currentPeriodOrdinal || '';
-  const timeRemaining = game.linescore?.currentPeriodTimeRemaining || '';
+  const homeTeam = game.homeTeam?.name?.default || game.homeTeam?.abbrev || 'Home';
+  const awayTeam = game.awayTeam?.name?.default || game.awayTeam?.abbrev || 'Away';
+  const homeScore = game.homeTeam?.score || 0;
+  const awayScore = game.awayTeam?.score || 0;
+  const status = game.gameState || 'Unknown';
+  const period = game.period || '';
+  const timeRemaining = game.clock?.timeRemaining || '';
   
   return {
     homeTeam,
@@ -150,9 +156,9 @@ export function formatGameData(game) {
     status,
     period,
     timeRemaining,
-    gameId: game.gamePk,
-    startTime: new Date(game.gameDate),
-    isLeafsHome: homeTeam === 'Toronto Maple Leafs'
+    gameId: game.id,
+    startTime: new Date(game.startTimeUTC),
+    isLeafsHome: homeTeam.includes('Maple Leafs') || homeTeam.includes('Toronto')
   };
 }
 
@@ -164,11 +170,11 @@ export function formatGameData(game) {
 export function getTeamLogos(game) {
   if (!game) return null;
   
-  const homeTeamId = game.teams.home.team.id;
-  const awayTeamId = game.teams.away.team.id;
+  const homeTeamId = game.homeTeam?.abbrev || 'TOR';
+  const awayTeamId = game.awayTeam?.abbrev || 'TOR';
   
   return {
-    homeTeamLogo: `https://www-league.nhlstatic.com/images/logos/teams-current-primary-light/${homeTeamId}.svg`,
-    awayTeamLogo: `https://www-league.nhlstatic.com/images/logos/teams-current-primary-light/${awayTeamId}.svg`
+    homeTeamLogo: `https://assets.nhle.com/logos/nhl/svg/${homeTeamId}_light.svg`,
+    awayTeamLogo: `https://assets.nhle.com/logos/nhl/svg/${awayTeamId}_light.svg`
   };
 }
