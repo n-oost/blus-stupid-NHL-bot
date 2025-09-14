@@ -35,34 +35,19 @@ async function fetchJSON(url) {
  */
 export async function getNextLeafsGame() {
   try {
-    const response = await fetch(`${NHL_API_BASE}/schedule?teamId=${LEAFS_TEAM_ID}&expand=schedule.broadcasts,schedule.linescore`);
-    const data = await response.json();
-    
+    const url = `${NHL_API_BASE}/schedule?teamId=${LEAFS_TEAM_ID}&expand=schedule.broadcasts,schedule.linescore`;
+    const data = await fetchJSON(url);
+    if (!data) return null;
+
     // Check if there are any games
-      if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
-        if (ENABLE_SEASON_CHECK) {
-          console.log('Skipping NHL API check: not hockey season (no upcoming games)');
-        }
-        return null;
-      }
-    
+    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
+      if (ENABLE_SEASON_CHECK) console.log('Skipping NHL API check: not hockey season (no upcoming games)');
+      return null;
+    }
+
     return data.dates[0].games[0];
   } catch (error) {
     console.error('Error fetching next Leafs game:', error);
-    return null;
-  }
-}
- 
-/**
- * Get the full live feed for a game (includes scoring plays and detailed liveData)
- * @param {string|number} gameId
- */
-export async function getGameFeed(gameId) {
-  try {
-    const url = `${NHL_API_BASE}/game/${gameId}/feed/live`;
-    return await fetchJSON(url);
-  } catch (err) {
-    console.error(`Error fetching game feed for ${gameId}:`, err);
     return null;
   }
 }
@@ -72,16 +57,6 @@ export async function getGameFeed(gameId) {
  * @param {string} gameId - The NHL API game ID
  * @returns {Promise<Object>} Current game information with detailed linescore
  */
-export async function getGameStatus(gameId) {
-  try {
-    const response = await fetch(`${NHL_API_BASE}/game/${gameId}/linescore`);
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching game status for game ${gameId}:`, error);
-    return null;
-  }
-}
- 
 export async function getGameStatus(gameId) {
   try {
     const url = `${NHL_API_BASE}/game/${gameId}/linescore`;
@@ -99,16 +74,6 @@ export async function getGameStatus(gameId) {
  */
 export async function getGameBoxscore(gameId) {
   try {
-    const response = await fetch(`${NHL_API_BASE}/game/${gameId}/boxscore`);
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching boxscore for game ${gameId}:`, error);
-    return null;
-  }
-}
- 
-export async function getGameBoxscore(gameId) {
-  try {
     const url = `${NHL_API_BASE}/game/${gameId}/boxscore`;
     return await fetchJSON(url);
   } catch (error) {
@@ -117,28 +82,6 @@ export async function getGameBoxscore(gameId) {
   }
 }
 
-/**
- * Check if the Leafs are currently playing a game
- * @returns {Promise<Object|null>} Game object if playing, null if not
- */
-export async function getCurrentLeafsGame() {
-  try {
-    const response = await fetch(`${NHL_API_BASE}/schedule?teamId=${LEAFS_TEAM_ID}&expand=schedule.linescore`);
-    const data = await response.json();
-    
-    // Check if there are any games today
-    if (!data.dates || data.dates.length === 0 || !data.dates[0].games || data.dates[0].games.length === 0) {
-    }
-    
-    const game = data.dates[0].games[0];
-    
-    // Check if the game is in progress
-  } catch (error) {
-    console.error('Error checking current Leafs game:', error);
-    return null;
-  }
-}
- 
 /**
  * Check if the Leafs are currently playing a game
  * @returns {Promise<Object|null>} Game object if playing, null if not
@@ -165,6 +108,20 @@ export async function getCurrentLeafsGame() {
     return null;
   } catch (error) {
     console.error('Error checking current Leafs game:', error);
+    return null;
+  }
+}
+
+/**
+ * Get the full live feed for a game (includes scoring plays and detailed liveData)
+ * @param {string|number} gameId
+ */
+export async function getGameFeed(gameId) {
+  try {
+    const url = `${NHL_API_BASE}/game/${gameId}/feed/live`;
+    return await fetchJSON(url);
+  } catch (err) {
+    console.error(`Error fetching game feed for ${gameId}:`, err);
     return null;
   }
 }
