@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Client, GatewayIntentBits, Partials, Events, Collection, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, Events, Collection, SlashCommandBuilder, EmbedBuilder, REST, Routes } from 'discord.js';
 import { createServer } from 'http';
 import { 
   getCurrentLeafsGame, 
@@ -46,6 +46,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName('next-leafs-game')
     .setDescription('Get information about the next Toronto Maple Leafs game')
+  ,
+  new SlashCommandBuilder()
+    .setName('test-nhl-api')
+    .setDescription('Test NHL API connection and functionality')
 ];
 
 // When the client is ready, run this code (only once)
@@ -54,7 +58,39 @@ client.once(Events.ClientReady, readyClient => {
   
   // Start checking for game updates every minute
   startGameUpdateChecker(60000);
+
+  // Register slash commands per guild for instant availability
+  registerCommandsPerGuild(commands).catch(err => {
+    console.error('Error registering guild commands:', err);
+  });
 });
+
+async function registerCommandsPerGuild(builders) {
+  const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+  const body = builders.map(b => b.toJSON());
+  const appId = process.env.APP_ID;
+  if (!appId) {
+    console.warn('APP_ID is not set; cannot register guild commands.');
+    return;
+  }
+  const guilds = [...client.guilds.cache.values()];
+  if (guilds.length === 0) {
+    console.warn('Bot is not in any guilds yet; slash commands will be registered when invited.');
+    return;
+  }
+  console.log(`Registering ${body.length} commands in ${guilds.length} guild(s)...`);
+  for (const guild of guilds) {
+    try {
+      await rest.put(
+        Routes.applicationGuildCommands(appId, guild.id),
+        { body }
+      );
+      console.log(`Registered commands in guild ${guild.name} (${guild.id}).`);
+    } catch (e) {
+      console.error(`Failed to register commands in guild ${guild.id}:`, e);
+    }
+  }
+}
 
 // Handle slash commands
 client.on(Events.InteractionCreate, async interaction => {
