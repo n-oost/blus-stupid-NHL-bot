@@ -5,7 +5,8 @@ import {
   getNextLeafsGame, 
   getGameStatus, 
   formatGameData, 
-  getTeamLogos 
+  getTeamLogos,
+  testNHLAPI
 } from './nhl-api.js';
 
 // Create a new Discord client
@@ -112,6 +113,94 @@ client.on(Events.InteractionCreate, async interaction => {
       console.error('Error handling next-leafs-game command:', error);
       await interaction.editReply({
         content: `Sorry, there was an error getting the next game information. Please try again later.`
+      });
+    }
+  }
+  
+  // Test NHL API command
+  else if (commandName === 'test-nhl-api') {
+    await interaction.deferReply();
+    
+    try {
+      console.log('Running NHL API test...');
+      const testResults = await testNHLAPI();
+      
+      // Create embed with test results
+      const embed = new EmbedBuilder()
+        .setTitle('NHL API Test Results')
+        .setColor(testResults.overallStatus ? 0x00FF00 : 0xFF0000) // Green if success, red if failure
+        .addFields(
+          { 
+            name: 'Overall Status', 
+            value: testResults.overallStatus ? '✅ PASS' : '❌ FAIL', 
+            inline: true 
+          },
+          { 
+            name: 'API Connection', 
+            value: testResults.apiConnection ? '✅ Connected' : '❌ Failed', 
+            inline: true 
+          },
+          { 
+            name: 'Schedule Endpoint', 
+            value: testResults.scheduleEndpoint ? '✅ Working' : '❌ Failed', 
+            inline: true 
+          },
+          { 
+            name: 'Data Structure', 
+            value: testResults.dataStructure ? '✅ Valid' : '❌ Invalid', 
+            inline: true 
+          }
+        )
+        .setTimestamp();
+
+      // Add details if available
+      if (testResults.details.gamesFound !== undefined) {
+        embed.addFields({
+          name: 'Games Found',
+          value: `${testResults.details.gamesFound} games in current week`,
+          inline: true
+        });
+      }
+
+      if (testResults.details.sampleGame) {
+        const game = testResults.details.sampleGame;
+        embed.addFields({
+          name: 'Sample Game',
+          value: `${game.awayTeam} @ ${game.homeTeam}\nState: ${game.gameState}\nID: ${game.id}`,
+          inline: false
+        });
+      }
+
+      if (testResults.details.standingsTest !== undefined) {
+        embed.addFields({
+          name: 'Secondary Endpoint Test',
+          value: testResults.details.standingsTest ? '✅ Standings API working' : '⚠️ Standings API failed (non-critical)',
+          inline: true
+        });
+      }
+
+      // Add errors if any
+      if (testResults.errors.length > 0) {
+        embed.addFields({
+          name: 'Errors',
+          value: testResults.errors.join('\n'),
+          inline: false
+        });
+      }
+
+      if (testResults.details.note) {
+        embed.addFields({
+          name: 'Note',
+          value: testResults.details.note,
+          inline: false
+        });
+      }
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      console.error('Error running NHL API test:', error);
+      await interaction.editReply({
+        content: `❌ Failed to run NHL API test: ${error.message}`
       });
     }
   }

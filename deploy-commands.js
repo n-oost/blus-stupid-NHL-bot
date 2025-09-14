@@ -26,6 +26,10 @@ const commands = [
   {
     name: 'next-leafs-game',
     description: 'Get information about the next Toronto Maple Leafs game'
+  },
+  {
+    name: 'test-nhl-api',
+    description: 'Test NHL API connection and functionality'
   }
 ];
 

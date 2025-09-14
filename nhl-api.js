@@ -178,3 +178,81 @@ export function getTeamLogos(game) {
     awayTeamLogo: `https://assets.nhle.com/logos/nhl/svg/${awayTeamId}_light.svg`
   };
 }
+
+/**
+ * Test NHL API connection and functionality
+ * @returns {Promise<Object>} Test results with status and details
+ */
+export async function testNHLAPI() {
+  const results = {
+    apiConnection: false,
+    scheduleEndpoint: false,
+    dataStructure: false,
+    errors: [],
+    details: {}
+  };
+
+  try {
+    // Test 1: Basic API connection
+    console.log('Testing NHL API connection...');
+    const testUrl = `${NHL_API_BASE}/club-schedule/${LEAFS_TEAM_ID}/week/now`;
+    const response = await fetchJSON(testUrl);
+    
+    if (response) {
+      results.apiConnection = true;
+      results.scheduleEndpoint = true;
+      console.log('✅ NHL API connection successful');
+      
+      // Test 2: Data structure validation
+      if (response.games && Array.isArray(response.games)) {
+        results.dataStructure = true;
+        results.details.gamesFound = response.games.length;
+        console.log(`✅ Data structure valid - found ${response.games.length} games`);
+        
+        // Test 3: Sample game data if available
+        if (response.games.length > 0) {
+          const sampleGame = response.games[0];
+          results.details.sampleGame = {
+            id: sampleGame.id,
+            homeTeam: sampleGame.homeTeam?.abbrev,
+            awayTeam: sampleGame.awayTeam?.abbrev,
+            gameState: sampleGame.gameState,
+            startTime: sampleGame.startTimeUTC
+          };
+          console.log('✅ Sample game data retrieved successfully');
+        } else {
+          results.details.note = 'No games found in current week (likely off-season)';
+          console.log('ℹ️ No games found in current week (likely off-season)');
+        }
+      } else {
+        results.errors.push('Invalid data structure: games array not found');
+        console.log('❌ Data structure validation failed');
+      }
+    } else {
+      results.errors.push('Failed to fetch data from NHL API');
+      console.log('❌ NHL API connection failed');
+    }
+
+    // Test 4: Test a different endpoint for broader validation
+    try {
+      const standingsUrl = `${NHL_API_BASE}/standings/now`;
+      const standingsResponse = await fetchJSON(standingsUrl);
+      if (standingsResponse) {
+        results.details.standingsTest = true;
+        console.log('✅ Secondary endpoint (standings) working');
+      }
+    } catch (err) {
+      console.log('⚠️ Secondary endpoint test failed (non-critical)');
+      results.details.standingsTest = false;
+    }
+
+  } catch (error) {
+    results.errors.push(`Test error: ${error.message}`);
+    console.error('❌ NHL API test failed:', error);
+  }
+
+  // Overall status
+  results.overallStatus = results.apiConnection && results.scheduleEndpoint && results.dataStructure;
+  
+  return results;
+}
