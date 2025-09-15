@@ -92,31 +92,42 @@ async function registerCommandsPerGuild(builders) {
   }
 }
 
+// Add timeout wrapper function
+function withTimeout(promise, timeoutMs = 25000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+    )
+  ]);
+}
+
 // Handle slash commands
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
 
-  // Test command
-  if (commandName === 'test') {
-    await interaction.reply({
-      content: `Hello! The bot is working properly! 🏒`,
-      ephemeral: false
-    });
-  }
-  
-  // Setup Leafs updates command
-  else if (commandName === 'setup-leafs-updates') {
-    const channel = interaction.options.getChannel('channel');
-    
-    // Check if the channel is a text channel
-    if (!channel.isTextBased()) {
-      return interaction.reply({
-        content: `⚠️ ${channel} is not a text channel. Please select a text channel.`,
-        ephemeral: true
+  try {
+    // Test command
+    if (commandName === 'test') {
+      await interaction.reply({
+        content: `Hello! The bot is working properly! 🏒`,
+        ephemeral: false
       });
     }
+    
+    // Setup Leafs updates command
+    else if (commandName === 'setup-leafs-updates') {
+      const channel = interaction.options.getChannel('channel');
+      
+      // Check if the channel is a text channel
+      if (!channel.isTextBased()) {
+        return interaction.reply({
+          content: `⚠️ ${channel} is not a text channel. Please select a text channel.`,
+          ephemeral: true
+        });
+      }
     
     // Configure the channel
     configuredChannels.set(interaction.guild.id, channel.id);
@@ -144,12 +155,12 @@ client.on(Events.InteractionCreate, async interaction => {
     await interaction.deferReply();
     
     try {
-      const embed = await getNextGameEmbed();
+      const embed = await withTimeout(getNextGameEmbed(), 25000);
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       console.error('Error handling next-leafs-game command:', error);
       await interaction.editReply({
-        content: `Sorry, there was an error getting the next game information. Please try again later.`
+        content: `Sorry, there was an error getting the next game information. Please try again later.\nError: ${error.message}`
       });
     }
   }
@@ -160,7 +171,7 @@ client.on(Events.InteractionCreate, async interaction => {
     
     try {
       console.log('Running NHL API test...');
-      const testResults = await testNHLAPI();
+      const testResults = await withTimeout(testNHLAPI(), 25000);
       
       // Create embed with test results
       const embed = new EmbedBuilder()
@@ -241,7 +252,62 @@ client.on(Events.InteractionCreate, async interaction => {
       });
     }
   }
+  
+  // Handle unknown commands
+  else {
+    await interaction.reply({
+      content: `Unknown command: ${commandName}`,
+      ephemeral: true
+    });
+  }
+  
+  } catch (error) {
+    console.error('Error handling interaction:', error);
+    
+    // Try to respond if we haven't already
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: 'Sorry, there was an error processing your command. Please try again.',
+          ephemeral: true
+        });
+      } else if (interaction.deferred) {
+        await interaction.editReply({
+          content: 'Sorry, there was an error processing your command. Please try again.'
+        });
+      }
+    } catch (responseError) {
+      console.error('Error sending error response:', responseError);
+    }
+  }
 });
+
+// Add guild join event to register commands when bot joins new servers
+client.on(Events.GuildCreate, async guild => {
+  console.log(`Joined guild: ${guild.name} (${guild.id})`);
+  try {
+    await registerCommandsInGuild(guild);
+  } catch (error) {
+    console.error(`Failed to register commands in new guild ${guild.id}:`, error);
+  }
+});
+
+async function registerCommandsInGuild(guild) {
+  const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+  const body = commands.map(b => b.toJSON());
+  const appId = process.env.APP_ID;
+  
+  if (!appId) {
+    console.warn('APP_ID is not set; cannot register guild commands.');
+    return;
+  }
+  
+  await rest.put(
+    Routes.applicationGuildCommands(appId, guild.id),
+    { body }
+  );
+  console.log(`Registered commands in guild ${guild.name} (${guild.id}).`);
+}
 
 /**
  * Start the game update checker at an interval
