@@ -13,9 +13,21 @@ const LEAFS_TEAM_ID = 'TOR';
 // By default this is disabled so the bot quietly returns null when no games exist.
 const ENABLE_SEASON_CHECK = process.env.ENABLE_SEASON_CHECK === 'true';
 
+// Rate limiting for API calls
+let lastApiCall = 0;
+const API_CALL_DELAY = 1000; // 1 second between API calls
+
 // Small helper to fetch JSON and handle non-OK responses consistently.
 async function fetchJSON(url) {
   try {
+    // Rate limiting
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCall;
+    if (timeSinceLastCall < API_CALL_DELAY) {
+      await new Promise(resolve => setTimeout(resolve, API_CALL_DELAY - timeSinceLastCall));
+    }
+    lastApiCall = Date.now();
+    
     const res = await fetch(url, { headers: { 'User-Agent': 'blus-stupid-nhl-bot/1.0' } });
     if (!res.ok) {
       const text = await res.text();

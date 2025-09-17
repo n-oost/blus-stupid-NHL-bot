@@ -52,17 +52,83 @@ const commands = [
     .setDescription('Test NHL API connection and functionality')
 ];
 
+// Add memory monitoring function
+function logMemoryUsage() {
+  const used = process.memoryUsage();
+  console.log(`📊 Memory Usage: RSS ${Math.round(used.rss / 1024 / 1024)}MB, Heap ${Math.round(used.heapUsed / 1024 / 1024)}MB`);
+}
+
+// Add error handling for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Log but don't exit - try to continue running
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Log but don't exit - try to continue running
+});
+
 // When the client is ready, run this code (only once)
 client.once(Events.ClientReady, readyClient => {
-  console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+  console.log(`✅ Ready! Logged in as ${readyClient.user.tag}`);
+  console.log(`📊 Bot is in ${readyClient.guilds.cache.size} servers`);
+  console.log(`🕐 Bot started at: ${new Date().toISOString()}`);
   
   // Start checking for game updates every minute
   startGameUpdateChecker(60000);
+  
+  // Log uptime and memory usage every hour
+  setInterval(() => {
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    console.log(`⏱️ Bot uptime: ${hours}h ${minutes}m`);
+    logMemoryUsage();
+  }, 60 * 60 * 1000); // Every hour
+  
+  // Log memory usage every 30 minutes
+  setInterval(logMemoryUsage, 30 * 60 * 1000);
 
   // Register slash commands per guild for instant availability
   registerCommandsPerGuild(commands).catch(err => {
     console.error('Error registering guild commands:', err);
   });
+  
+  // Add keepalive mechanism for Render (prevent sleeping)
+  if (process.env.NODE_ENV === 'production') {
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://blus-stupid-nhl-bot.onrender.com';
+    
+    setInterval(async () => {
+      try {
+        const response = await fetch(`${RENDER_URL}/health`);
+        console.log(`🏓 Keepalive ping: ${response.status}`);
+      } catch (error) {
+        console.log('🏓 Keepalive ping failed:', error.message);
+      }
+    }, 14 * 60 * 1000); // Every 14 minutes
+  }
+});
+
+// Add Discord connection event handlers
+client.on('disconnect', (event) => {
+  console.log(`❌ Disconnected from Discord (Code: ${event.code})`);
+});
+
+client.on('reconnecting', () => {
+  console.log(`🔄 Bot reconnecting to Discord...`);
+});
+
+client.on('resume', () => {
+  console.log(`✅ Resumed connection to Discord`);
+});
+
+client.on('error', (error) => {
+  console.error('❌ Discord client error:', error);
+});
+
+client.on('warn', (warning) => {
+  console.warn('⚠️ Discord client warning:', warning);
 });
 
 async function registerCommandsPerGuild(builders) {
