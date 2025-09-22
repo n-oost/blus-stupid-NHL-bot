@@ -557,7 +557,7 @@ async function getNextGameEmbed() {
   const formattedGame = formatGameData(nextGame);
   const logos = getTeamLogos(nextGame);
   
-  // Format the game time
+  // Format the game time in US Eastern Time (EST/EDT)
   const gameTime = new Date(nextGame.gameDate);
   const formattedTime = gameTime.toLocaleString('en-US', {
     weekday: 'long',
@@ -565,6 +565,7 @@ async function getNextGameEmbed() {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/New_York',
     timeZoneName: 'short'
   });
   
