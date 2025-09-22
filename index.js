@@ -255,7 +255,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (testResults.details.gamesFound !== undefined) {
         embed.addFields({
           name: 'Games Found',
-          value: testResults.details.gamesFound !== undefined ? String(testResults.details.gamesFound) + ' games in current week' : 'TBD',
+          value: testResults.details.gamesFound !== undefined && testResults.details.gamesFound !== null ? String(testResults.details.gamesFound) + ' games in current week' : 'TBD',
           inline: true
         });
       }
@@ -264,7 +264,7 @@ client.on(Events.InteractionCreate, async interaction => {
         const game = testResults.details.sampleGame;
         embed.addFields({
           name: 'Sample Game',
-          value: `${game.awayTeam ?? 'Unknown'} @ ${game.homeTeam ?? 'Unknown'}\nState: ${game.gameState ?? 'Unknown'}\nID: ${game.id ?? 'Unknown'}`,
+          value: `${typeof game.awayTeam === 'string' && game.awayTeam.trim() ? game.awayTeam : 'Unknown'} @ ${typeof game.homeTeam === 'string' && game.homeTeam.trim() ? game.homeTeam : 'Unknown'}\nState: ${typeof game.gameState === 'string' && game.gameState.trim() ? game.gameState : 'Unknown'}\nID: ${game.id !== undefined && game.id !== null ? game.id : 'Unknown'}`,
           inline: false
         });
       }
@@ -281,7 +281,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (testResults.errors.length > 0) {
         embed.addFields({
           name: 'Errors',
-          value: testResults.errors.join('\n') || 'Unknown error',
+          value: Array.isArray(testResults.errors) && testResults.errors.length > 0 ? testResults.errors.filter(e => typeof e === 'string' && e.trim()).join('\n') || 'Unknown error' : 'Unknown error',
           inline: false
         });
       }
@@ -289,7 +289,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (testResults.details.note) {
         embed.addFields({
           name: 'Note',
-          value: testResults.details.note ?? 'No note',
+          value: typeof testResults.details.note === 'string' && testResults.details.note.trim() ? testResults.details.note : 'No note',
           inline: false
         });
       }
@@ -515,9 +515,21 @@ function createGameUpdateEmbed(update) {
     .setTitle(update.message)
     .setColor(color)
     .addFields(
-      { name: formattedGame.awayTeam ?? 'Away', value: formattedGame.awayScore !== undefined ? String(formattedGame.awayScore) : 'TBD', inline: true },
-      { name: 'VS', value: (formattedGame.period ?? 'TBD') + ' ' + (formattedGame.timeRemaining ?? 'TBD'), inline: true },
-      { name: formattedGame.homeTeam ?? 'Home', value: formattedGame.homeScore !== undefined ? String(formattedGame.homeScore) : 'TBD', inline: true }
+      {
+        name: typeof formattedGame.awayTeam === 'string' && formattedGame.awayTeam.trim() ? formattedGame.awayTeam : 'Away',
+        value: formattedGame.awayScore !== undefined && formattedGame.awayScore !== null ? String(formattedGame.awayScore) : 'TBD',
+        inline: true
+      },
+      {
+        name: 'VS',
+        value: ((typeof formattedGame.period === 'string' && formattedGame.period.trim() ? formattedGame.period : 'TBD') + ' ' + (typeof formattedGame.timeRemaining === 'string' && formattedGame.timeRemaining.trim() ? formattedGame.timeRemaining : 'TBD')),
+        inline: true
+      },
+      {
+        name: typeof formattedGame.homeTeam === 'string' && formattedGame.homeTeam.trim() ? formattedGame.homeTeam : 'Home',
+        value: formattedGame.homeScore !== undefined && formattedGame.homeScore !== null ? String(formattedGame.homeScore) : 'TBD',
+        inline: true
+      }
     )
     .setFooter({ text: `Game Status: ${formattedGame.status}` })
     .setTimestamp();
@@ -561,8 +573,8 @@ async function getNextGameEmbed() {
     .setColor(0x00205B) // Leafs blue
     .setDescription(`${formattedGame.awayTeam} at ${formattedGame.homeTeam}`)
     .addFields(
-      { name: "Game Time", value: formattedTime ? String(formattedTime) : "TBD" },
-      { name: "Venue", value: nextGame.venue?.name ? String(nextGame.venue.name) : "TBD" }
+      { name: "Game Time", value: typeof formattedTime === 'string' && formattedTime.trim() ? formattedTime : "TBD" },
+      { name: "Venue", value: nextGame.venue?.name && typeof nextGame.venue.name === 'string' && nextGame.venue.name.trim() ? nextGame.venue.name : "TBD" }
     )
     .setFooter({ text: "Data from NHL API" })
     .setTimestamp();
