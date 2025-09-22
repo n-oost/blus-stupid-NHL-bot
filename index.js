@@ -242,28 +242,12 @@ client.on(Events.InteractionCreate, async interaction => {
       // Create embed with test results
       const embed = new EmbedBuilder()
         .setTitle('NHL API Test Results')
-        .setColor(testResults.overallStatus ? 0x00FF00 : 0xFF0000) // Green if success, red if failure
+        .setColor(testResults?.overallStatus ? 0x00FF00 : 0xFF0000)
         .addFields(
-          { 
-            name: 'Overall Status', 
-            value: testResults.overallStatus ? '✅ PASS' : '❌ FAIL', 
-            inline: true 
-          },
-          { 
-            name: 'API Connection', 
-            value: testResults.apiConnection ? '✅ Connected' : '❌ Failed', 
-            inline: true 
-          },
-          { 
-            name: 'Schedule Endpoint', 
-            value: testResults.scheduleEndpoint ? '✅ Working' : '❌ Failed', 
-            inline: true 
-          },
-          { 
-            name: 'Data Structure', 
-            value: testResults.dataStructure ? '✅ Valid' : '❌ Invalid', 
-            inline: true 
-          }
+          { name: 'Overall Status', value: testResults?.overallStatus ? '✅ PASS' : '❌ FAIL', inline: true },
+          { name: 'API Connection', value: testResults?.apiConnection ? '✅ Connected' : '❌ Failed', inline: true },
+          { name: 'Schedule Endpoint', value: testResults?.scheduleEndpoint ? '✅ Working' : '❌ Failed', inline: true },
+          { name: 'Data Structure', value: testResults?.dataStructure ? '✅ Valid' : '❌ Invalid', inline: true }
         )
         .setTimestamp();
 
@@ -271,7 +255,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (testResults.details.gamesFound !== undefined) {
         embed.addFields({
           name: 'Games Found',
-          value: `${testResults.details.gamesFound} games in current week`,
+          value: testResults.details.gamesFound !== undefined ? String(testResults.details.gamesFound) + ' games in current week' : 'TBD',
           inline: true
         });
       }
@@ -280,7 +264,7 @@ client.on(Events.InteractionCreate, async interaction => {
         const game = testResults.details.sampleGame;
         embed.addFields({
           name: 'Sample Game',
-          value: `${game.awayTeam} @ ${game.homeTeam}\nState: ${game.gameState}\nID: ${game.id}`,
+          value: `${game.awayTeam ?? 'Unknown'} @ ${game.homeTeam ?? 'Unknown'}\nState: ${game.gameState ?? 'Unknown'}\nID: ${game.id ?? 'Unknown'}`,
           inline: false
         });
       }
@@ -297,7 +281,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (testResults.errors.length > 0) {
         embed.addFields({
           name: 'Errors',
-          value: testResults.errors.join('\n'),
+          value: testResults.errors.join('\n') || 'Unknown error',
           inline: false
         });
       }
@@ -305,7 +289,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (testResults.details.note) {
         embed.addFields({
           name: 'Note',
-          value: testResults.details.note,
+          value: testResults.details.note ?? 'No note',
           inline: false
         });
       }
@@ -531,9 +515,9 @@ function createGameUpdateEmbed(update) {
     .setTitle(update.message)
     .setColor(color)
     .addFields(
-      { name: formattedGame.awayTeam, value: `${formattedGame.awayScore}`, inline: true },
-      { name: 'VS', value: `${formattedGame.period} ${formattedGame.timeRemaining}`, inline: true },
-      { name: formattedGame.homeTeam, value: `${formattedGame.homeScore}`, inline: true }
+      { name: formattedGame.awayTeam ?? 'Away', value: formattedGame.awayScore !== undefined ? String(formattedGame.awayScore) : 'TBD', inline: true },
+      { name: 'VS', value: (formattedGame.period ?? 'TBD') + ' ' + (formattedGame.timeRemaining ?? 'TBD'), inline: true },
+      { name: formattedGame.homeTeam ?? 'Home', value: formattedGame.homeScore !== undefined ? String(formattedGame.homeScore) : 'TBD', inline: true }
     )
     .setFooter({ text: `Game Status: ${formattedGame.status}` })
     .setTimestamp();
@@ -577,8 +561,8 @@ async function getNextGameEmbed() {
     .setColor(0x00205B) // Leafs blue
     .setDescription(`${formattedGame.awayTeam} at ${formattedGame.homeTeam}`)
     .addFields(
-      { name: "Game Time", value: formattedTime },
-      { name: "Venue", value: nextGame.venue.name }
+      { name: "Game Time", value: formattedTime ? String(formattedTime) : "TBD" },
+      { name: "Venue", value: nextGame.venue?.name ? String(nextGame.venue.name) : "TBD" }
     )
     .setFooter({ text: "Data from NHL API" })
     .setTimestamp();
