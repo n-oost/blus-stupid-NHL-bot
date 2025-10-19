@@ -86,6 +86,45 @@ A Discord bot that posts Toronto Maple Leafs game updates to a designated channe
 - `/stop-leafs-updates` - Stop posting game updates in this server
 - `/next-leafs-game` - Get information about the next Toronto Maple Leafs game
 - `/test` - Basic test command to check if the bot is working
+- `/test-goal` - Simulate a goal notification for testing (development/testing only)
+
+### Developer Commands
+
+#### `/test-goal` - Simulated Goal Testing
+
+The `/test-goal` command allows developers to test the goal notification system end-to-end without waiting for a real game. It simulates a goal event and runs the same code path as real goal notifications.
+
+**Usage:**
+```
+/test-goal [team] [scorer] [period] [time] [strength] [force]
+```
+
+**Parameters** (all optional):
+- `team` (string) - Team abbreviation that scored (default: `TOR`)
+- `scorer` (string) - Name of the scorer (default: `Auston Matthews`)
+- `period` (integer) - Period number 1-5, where 4+ becomes OT (default: `1`)
+- `time` (string) - Time in period, e.g., "12:34" (default: `10:00`)
+- `strength` (string) - Goal strength: `EV`, `PP`, `SH`, `EN`, or `PS` (default: `EV`)
+- `force` (boolean) - Force execution in production environment (default: `false`)
+
+**Restrictions:**
+- By default, this command only works when `NODE_ENV` is not set to `production`
+- In production, you must set `force: true` to override the safety check
+- A channel must be configured with `/setup-leafs-updates` before testing
+
+**Examples:**
+```
+/test-goal
+/test-goal team:BOS scorer:David Pastrnak period:2 time:15:23 strength:PP
+/test-goal team:TOR scorer:William Nylander strength:SH force:true
+```
+
+**What it does:**
+1. Validates environment (dev/testing only by default)
+2. Creates a realistic simulated goal payload
+3. Runs the same `createGoalEmbed()` function used for real goals
+4. Sends the notification through `sendGoalToChannels()` to all configured channels
+5. Logs the simulated payload to the console for debugging
 
 ## How It Works
 
