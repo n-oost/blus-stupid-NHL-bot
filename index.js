@@ -7,7 +7,8 @@ import {
   getGameStatus, 
   formatGameData, 
   getTeamLogos,
-  testNHLAPI
+  testNHLAPI,
+  getGameFeed
 } from './nhl-api.js';
 
 // Create a new Discord client
@@ -382,7 +383,7 @@ async function checkForGameUpdates() {
       return;
     }
     
-    const gameId = currentGame.gamePk;
+    const gameId = currentGame.id || currentGame.gamePk;
     
     // Start tracking game if not already
     if (!activeGames.has(gameId)) {
@@ -392,54 +393,191 @@ async function checkForGameUpdates() {
         lastHomeScore: 0,
         lastAwayScore: 0,
         lastTimeRemaining: '',
+        lastScoringIdx: -1,  // Track last processed scoring event
         scoreChanges: []
       });
+      console.log(`🏒 Started tracking game ${gameId}`);
     }
     
-    // Get detailed game status
+    // Get detailed game status (landing endpoint)
     const gameStatus = await getGameStatus(gameId);
     if (!gameStatus) return;
+    
+    // Get play-by-play data for goal detection
+    const gameFeed = await getGameFeed(gameId);
+    if (!gameFeed) {
+      console.log(`⚠️ No play-by-play data available for game ${gameId}`);
+      return;
+    }
     
     const formattedGame = formatGameData(currentGame);
     const gameTracker = activeGames.get(gameId);
     
-    // Check for score changes
-    const homeScore = gameStatus.teams.home.goals;
-    const awayScore = gameStatus.teams.away.goals;
-    const currentPeriod = gameStatus.currentPeriodOrdinal;
-    const timeRemaining = gameStatus.currentPeriodTimeRemaining;
+    // Extract current score and game state from landing endpoint
+    const homeScore = gameStatus.homeTeam?.score ?? 0;
+    const awayScore = gameStatus.awayTeam?.score ?? 0;
+    const currentPeriod = gameStatus.periodDescriptor?.number ?? gameStatus.period ?? 1;
+    const periodType = gameStatus.periodDescriptor?.periodType ?? 'REG';
+    const timeRemaining = gameStatus.clock?.timeRemaining ?? '';
+    const gameState = gameStatus.gameState ?? '';
     
-    let update = null;
+    // Format period display
+    let currentPeriodOrdinal = '';
+    if (periodType === 'OT') {
+      currentPeriodOrdinal = 'OT';
+    } else if (periodType === 'SO') {
+      currentPeriodOrdinal = 'SO';
+    } else {
+      currentPeriodOrdinal = `P${currentPeriod}`;
+    }
 
-    // Keep formattedGame in sync with live linescore values so embeds show correct scores/time
+    // Keep formattedGame in sync with live values
     if (formattedGame) {
       formattedGame.homeScore = homeScore;
       formattedGame.awayScore = awayScore;
-      formattedGame.period = currentPeriod || formattedGame.period;
-      formattedGame.timeRemaining = timeRemaining || formattedGame.timeRemaining;
-      formattedGame.status = gameStatus?.currentPeriodTimeRemaining === 'Final' ? 'Final' : formattedGame.status;
+      formattedGame.period = currentPeriodOrdinal;
+      formattedGame.timeRemaining = timeRemaining;
+      formattedGame.status = gameState === 'OFF' || gameState === 'FINAL' ? 'Final' : formattedGame.status;
     }
     
-    // Score change
-    if (homeScore !== gameTracker.lastHomeScore || awayScore !== gameTracker.lastAwayScore) {
-      update = {
-        type: 'SCORE_UPDATE',
-        message: `🚨 GOAL! ${formattedGame.awayTeam} ${awayScore} - ${homeScore} ${formattedGame.homeTeam}`,
-        formattedGame,
-        logos: getTeamLogos(currentGame)
-      };
-    } 
+    // Parse scoring plays from play-by-play data
+    const plays = gameFeed.plays || [];
+    const scoringPlays = plays.filter(p => p.typeDescKey === 'goal');
+    
+    console.log(`📊 Game ${gameId}: Found ${scoringPlays.length} total goals, last processed index: ${gameTracker.lastScoringIdx}`);
+    
+    // Process new scoring plays
+    for (let i = gameTracker.lastScoringIdx + 1; i < scoringPlays.length; i++) {
+      const goalEvent = scoringPlays[i];
+      
+      console.log(`🚨 New goal detected at index ${i}:`, {
+        eventId: goalEvent.eventId,
+        period: goalEvent.periodDescriptor?.number,
+        time: goalEvent.timeInPeriod,
+        team: goalEvent.details?.eventOwnerTeamId
+      });
+      
+      // Extract goal details with safe fallbacks
+      const details = goalEvent.details || {};
+      const scoringPlayer = details.scoringPlayer || {};
+      const scoringPlayerName = `${scoringPlayer.firstName?.default || ''} ${scoringPlayer.lastName?.default || ''}`.trim();
+      const scoringPlayerNumber = scoringPlayer.sweaterNumber ? `#${scoringPlayer.sweaterNumber}` : '';
+      const scorer = scoringPlayerName 
+        ? `${scoringPlayerName} ${scoringPlayerNumber}`.trim()
+        : 'Unknown';
+      
+      // Build assists string
+      const assistPlayers = details.assists || [];
+      const assists = assistPlayers.length > 0
+        ? assistPlayers.map(a => {
+            const name = `${a.firstName?.default || ''} ${a.lastName?.default || ''}`.trim();
+            const num = a.sweaterNumber ? `#${a.sweaterNumber}` : '';
+            return name ? `${name} ${num}`.trim() : '';
+          }).filter(a => a).join(', ')
+        : 'Unassisted';
+      
+      // Determine strength
+      let strength = 'EV'; // Even strength default
+      
+      // Check for explicit strength field first (most reliable)
+      if (details.strength) {
+        strength = details.strength.toUpperCase();
+      } 
+      // Check for penalty shot
+      else if (details.shotType === 'penalty-shot') {
+        strength = 'PS';
+      }
+      // Check for empty net (this can combine with other strengths)
+      else if (details.goalModifier === 'empty-net') {
+        strength = 'EN';
+      }
+      // Fallback: Try to parse from situation code if no explicit strength
+      else if (goalEvent.situationCode) {
+        // Situation code format analysis (best effort)
+        // Typically: first 2 digits indicate away/home strength
+        const situationCode = goalEvent.situationCode;
+        const awayCode = situationCode.charAt(0);
+        const homeCode = situationCode.charAt(1);
+        
+        // If codes differ, one team has numerical advantage
+        if (awayCode !== homeCode) {
+          const scoringTeamId = details.eventOwnerTeamId;
+          const isHomeTeam = scoringTeamId === (currentGame.homeTeam?.abbrev || '');
+          
+          // Lower code value typically means more players (1=5, 2=4, etc.)
+          if (isHomeTeam) {
+            strength = homeCode < awayCode ? 'PP' : 'SH';
+          } else {
+            strength = awayCode < homeCode ? 'PP' : 'SH';
+          }
+        }
+      }
+      
+      // Format period and time
+      const periodDesc = goalEvent.periodDescriptor || {};
+      let period = '';
+      if (periodDesc.periodType === 'OT') {
+        period = 'OT';
+      } else if (periodDesc.periodType === 'SO') {
+        period = 'SO';
+      } else {
+        period = `P${periodDesc.number || currentPeriod}`;
+      }
+      
+      const timeInPeriod = goalEvent.timeInPeriod || 'TBD';
+      
+      // Get scores after this goal
+      const goalHomeScore = details.homeScore ?? homeScore;
+      const goalAwayScore = details.awayScore ?? awayScore;
+      
+      // Get team abbreviations
+      const homeTeamAbbrev = currentGame.homeTeam?.abbrev || formattedGame?.homeTeam || 'Home';
+      const awayTeamAbbrev = currentGame.awayTeam?.abbrev || formattedGame?.awayTeam || 'Away';
+      const scoringTeamAbbrev = details.eventOwnerTeamId || '';
+      
+      // Shot type
+      const shotType = details.shotType || '';
+      
+      // Build goal embed
+      const logos = getTeamLogos(currentGame);
+      const goalEmbed = createGoalEmbed({
+        scorer,
+        assists,
+        strength,
+        period,
+        timeInPeriod,
+        homeScore: goalHomeScore,
+        awayScore: goalAwayScore,
+        homeTeam: homeTeamAbbrev,
+        awayTeam: awayTeamAbbrev,
+        teamAbbrev: scoringTeamAbbrev,
+        shotType,
+        logos
+      });
+      
+      // Send goal update to all configured channels
+      await sendGoalToChannels(goalEmbed);
+    }
+    
+    // Update last scoring index
+    if (scoringPlays.length > 0) {
+      gameTracker.lastScoringIdx = scoringPlays.length - 1;
+    }
+    
+    // Check for other updates (period changes, game end)
+    let update = null;
+    
     // Period change
-    else if (currentPeriod !== gameTracker.lastPeriod) {
+    if (currentPeriodOrdinal !== gameTracker.lastPeriod && gameTracker.lastPeriod !== '') {
       update = {
         type: 'PERIOD_UPDATE',
-        message: `Period update: Now ${currentPeriod}`,
+        message: `Period update: Now ${currentPeriodOrdinal}`,
         formattedGame,
         logos: getTeamLogos(currentGame)
       };
     }
     // Game ended
-    else if (timeRemaining === 'Final' && gameTracker.lastTimeRemaining !== 'Final') {
+    else if ((gameState === 'OFF' || gameState === 'FINAL') && gameTracker.lastTimeRemaining !== 'Final') {
       update = {
         type: 'GAME_END',
         message: `Game Final: ${formattedGame.awayTeam} ${awayScore} - ${homeScore} ${formattedGame.homeTeam}`,
@@ -447,6 +585,7 @@ async function checkForGameUpdates() {
         logos: getTeamLogos(currentGame)
       };
       
+      console.log(`🏁 Game ${gameId} ended. Stopping tracking.`);
       // Stop tracking game
       activeGames.delete(gameId);
     }
@@ -456,19 +595,40 @@ async function checkForGameUpdates() {
       const tracker = activeGames.get(gameId);
       tracker.lastHomeScore = homeScore;
       tracker.lastAwayScore = awayScore;
-      tracker.lastPeriod = currentPeriod;
-      tracker.lastTimeRemaining = timeRemaining;
+      tracker.lastPeriod = currentPeriodOrdinal;
+      tracker.lastTimeRemaining = gameState === 'OFF' || gameState === 'FINAL' ? 'Final' : timeRemaining;
       tracker.lastUpdate = Date.now();
       activeGames.set(gameId, tracker);
     }
     
-    // Send updates to all configured channels if there's an update
+    // Send updates to all configured channels if there's a non-goal update
     if (update) {
       await sendGameUpdateToChannels(update);
     }
     
   } catch (error) {
     console.error('Error checking for game updates:', error);
+  }
+}
+
+/**
+ * Send goal embed to all configured channels
+ * @param {EmbedBuilder} goalEmbed - Goal embed to send
+ */
+async function sendGoalToChannels(goalEmbed) {
+  for (const [guildId, channelId] of configuredChannels.entries()) {
+    try {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) continue;
+      
+      const channel = guild.channels.cache.get(channelId);
+      if (!channel) continue;
+      
+      await channel.send({ embeds: [goalEmbed] });
+      console.log(`✅ Goal update sent to guild ${guildId}, channel ${channelId}`);
+    } catch (error) {
+      console.error(`Error sending goal update to guild ${guildId}, channel ${channelId}:`, error);
+    }
   }
 }
 
@@ -539,6 +699,93 @@ function createGameUpdateEmbed(update) {
     embed.setThumbnail(formattedGame.isLeafsHome ? logos.homeTeamLogo : logos.awayTeamLogo);
   }
   
+  return embed;
+}
+
+/**
+ * Create a Discord embed specifically for goal events
+ * @param {Object} goalData - Goal event data
+ * @returns {EmbedBuilder} Discord embed object
+ */
+function createGoalEmbed(goalData) {
+  const {
+    scorer,
+    assists,
+    strength,
+    period,
+    timeInPeriod,
+    homeScore,
+    awayScore,
+    homeTeam,
+    awayTeam,
+    teamAbbrev,
+    shotType,
+    logos
+  } = goalData;
+
+  // Build title with current score
+  const title = `🚨 GOAL! ${awayTeam || 'Away'} ${awayScore !== undefined ? awayScore : 'TBD'} – ${homeScore !== undefined ? homeScore : 'TBD'} ${homeTeam || 'Home'}`;
+
+  // Create the embed
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(0x4CAF50) // Green for goals
+    .setTimestamp();
+
+  // Add fields
+  const fields = [];
+
+  // Scorer
+  fields.push({
+    name: '🏒 Scorer',
+    value: typeof scorer === 'string' && scorer.trim() ? scorer : 'Unknown',
+    inline: false
+  });
+
+  // Assists
+  fields.push({
+    name: '🎯 Assists',
+    value: typeof assists === 'string' && assists.trim() ? assists : 'Unassisted',
+    inline: false
+  });
+
+  // Strength and period/time on same line
+  const strengthStr = typeof strength === 'string' && strength.trim() ? strength : 'EV';
+  const periodStr = typeof period === 'string' && period.trim() ? period : 'TBD';
+  const timeStr = typeof timeInPeriod === 'string' && timeInPeriod.trim() ? timeInPeriod : 'TBD';
+  
+  fields.push({
+    name: '💪 Strength',
+    value: strengthStr,
+    inline: true
+  });
+
+  fields.push({
+    name: '⏱️ Time',
+    value: `${periodStr} ${timeStr}`,
+    inline: true
+  });
+
+  // Shot type if available
+  if (shotType && typeof shotType === 'string' && shotType.trim()) {
+    fields.push({
+      name: '🎯 Shot Type',
+      value: shotType,
+      inline: true
+    });
+  }
+
+  embed.addFields(fields);
+
+  // Add team logo
+  if (logos) {
+    // Show logo of the team that scored
+    const scoringTeamLogo = teamAbbrev === homeTeam ? logos.homeTeamLogo : logos.awayTeamLogo;
+    if (scoringTeamLogo) {
+      embed.setThumbnail(scoringTeamLogo);
+    }
+  }
+
   return embed;
 }
 
