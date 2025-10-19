@@ -478,24 +478,39 @@ async function checkForGameUpdates() {
       
       // Determine strength
       let strength = 'EV'; // Even strength default
-      if (details.shotType === 'penalty-shot') {
-        strength = 'PS';
-      } else if (goalEvent.situationCode) {
-        // Parse situation code (e.g., "1551" where positions indicate team strengths)
-        const situationCode = goalEvent.situationCode;
-        const teamStrength = parseInt(situationCode.substring(0, 1), 10);
-        const oppStrength = parseInt(situationCode.substring(1, 2), 10);
-        
-        if (teamStrength > oppStrength) {
-          strength = 'PP'; // Power play
-        } else if (teamStrength < oppStrength) {
-          strength = 'SH'; // Short handed
-        }
-      }
       
-      // Check for empty net
-      if (details.goalModifier === 'empty-net') {
+      // Check for explicit strength field first (most reliable)
+      if (details.strength) {
+        strength = details.strength.toUpperCase();
+      } 
+      // Check for penalty shot
+      else if (details.shotType === 'penalty-shot') {
+        strength = 'PS';
+      }
+      // Check for empty net (this can combine with other strengths)
+      else if (details.goalModifier === 'empty-net') {
         strength = 'EN';
+      }
+      // Fallback: Try to parse from situation code if no explicit strength
+      else if (goalEvent.situationCode) {
+        // Situation code format analysis (best effort)
+        // Typically: first 2 digits indicate away/home strength
+        const situationCode = goalEvent.situationCode;
+        const awayCode = situationCode.charAt(0);
+        const homeCode = situationCode.charAt(1);
+        
+        // If codes differ, one team has numerical advantage
+        if (awayCode !== homeCode) {
+          const scoringTeamId = details.eventOwnerTeamId;
+          const isHomeTeam = scoringTeamId === (currentGame.homeTeam?.abbrev || '');
+          
+          // Lower code value typically means more players (1=5, 2=4, etc.)
+          if (isHomeTeam) {
+            strength = homeCode < awayCode ? 'PP' : 'SH';
+          } else {
+            strength = awayCode < homeCode ? 'PP' : 'SH';
+          }
+        }
       }
       
       // Format period and time
