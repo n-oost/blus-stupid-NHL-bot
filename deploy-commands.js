@@ -30,6 +30,10 @@ const commands = [
   {
     name: 'test-nhl-api',
     description: 'Test NHL API connection and functionality'
+  },
+  {
+    name: 'test-goal',
+    description: 'Send a test goal notification to see what goal updates look like'
   }
 ];
 
