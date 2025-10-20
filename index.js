@@ -50,7 +50,44 @@ const commands = [
   ,
   new SlashCommandBuilder()
     .setName('test-nhl-api')
-    .setDescription('Test NHL API connection and functionality')
+    .setDescription('Test NHL API connection and functionality'),
+    
+  new SlashCommandBuilder()
+    .setName('test-goal')
+    .setDescription('Simulate a goal notification for testing (dev/testing only)')
+    .addStringOption(option =>
+      option.setName('team')
+        .setDescription('Team abbreviation that scored (default: TOR)')
+        .setRequired(false))
+    .addStringOption(option =>
+      option.setName('scorer')
+        .setDescription('Scorer name (default: Auston Matthews)')
+        .setRequired(false))
+    .addIntegerOption(option =>
+      option.setName('period')
+        .setDescription('Period number (default: 1)')
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(5))
+    .addStringOption(option =>
+      option.setName('time')
+        .setDescription('Time in period (default: 10:00)')
+        .setRequired(false))
+    .addStringOption(option =>
+      option.setName('strength')
+        .setDescription('Goal strength (default: EV)')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Even Strength', value: 'EV' },
+          { name: 'Power Play', value: 'PP' },
+          { name: 'Short Handed', value: 'SH' },
+          { name: 'Empty Net', value: 'EN' },
+          { name: 'Penalty Shot', value: 'PS' }
+        ))
+    .addBooleanOption(option =>
+      option.setName('force')
+        .setDescription('Force execution in production (default: false)')
+        .setRequired(false))
 ];
 
 // Add memory monitoring function
@@ -300,6 +337,85 @@ client.on(Events.InteractionCreate, async interaction => {
       console.error('Error running NHL API test:', error);
       await interaction.editReply({
         content: `❌ Failed to run NHL API test: ${error.message}`
+      });
+    }
+  }
+  
+  // Test goal command
+  else if (commandName === 'test-goal') {
+    // Check environment restrictions
+    const isDev = process.env.NODE_ENV !== 'production';
+    const force = interaction.options.getBoolean('force') || false;
+    
+    if (!isDev && !force) {
+      return interaction.reply({
+        content: '⚠️ This command is only available in development/testing environments. Use `force: true` to override in production.',
+        ephemeral: true
+      });
+    }
+    
+    // Check if there's a configured channel for this guild
+    const channelId = configuredChannels.get(interaction.guild.id);
+    if (!channelId) {
+      return interaction.reply({
+        content: '⚠️ No channel configured for game updates. Please run `/setup-leafs-updates` first.',
+        ephemeral: true
+      });
+    }
+    
+    await interaction.deferReply({ ephemeral: true });
+    
+    try {
+      // Get command options with defaults
+      const team = interaction.options.getString('team') || 'TOR';
+      const scorer = interaction.options.getString('scorer') || 'Auston Matthews';
+      const period = interaction.options.getInteger('period') || 1;
+      const time = interaction.options.getString('time') || '10:00';
+      const strength = interaction.options.getString('strength') || 'EV';
+      
+      // For TOR, make them the home team; otherwise, make the scoring team away
+      const isToronto = team === 'TOR';
+      
+      // Create simulated goal embed
+      const simulatedGoalEmbed = createGoalEmbed({
+        scorer: `${scorer} #34`,
+        assists: 'William Nylander #88, Mitchell Marner #16',
+        strength: strength,
+        period: period > 3 ? 'OT' : `P${period}`,
+        timeInPeriod: time,
+        homeScore: isToronto ? 2 : 1,
+        awayScore: isToronto ? 1 : 2,
+        homeTeam: isToronto ? 'TOR' : 'OPP',
+        awayTeam: isToronto ? 'OPP' : team,
+        teamAbbrev: team,
+        shotType: 'wrist',
+        logos: {
+          homeTeamLogo: `https://assets.nhle.com/logos/nhl/svg/${isToronto ? 'TOR' : 'OPP'}_light.svg`,
+          awayTeamLogo: `https://assets.nhle.com/logos/nhl/svg/${isToronto ? 'OPP' : team}_light.svg`
+        }
+      });
+      
+      // Send to configured channel (same path as real goals)
+      await sendGoalToChannels(simulatedGoalEmbed);
+      
+      // Log the simulated payload
+      console.log('🧪 Test goal simulated:', {
+        team,
+        scorer,
+        period,
+        time,
+        strength,
+        guildId: interaction.guild.id,
+        channelId
+      });
+      
+      await interaction.editReply({
+        content: `✅ Test goal notification sent to <#${channelId}>!\n\n**Simulated Data:**\n- Team: ${team}\n- Scorer: ${scorer}\n- Period: ${period > 3 ? 'OT' : `P${period}`}\n- Time: ${time}\n- Strength: ${strength}`
+      });
+    } catch (error) {
+      console.error('Error handling test-goal command:', error);
+      await interaction.editReply({
+        content: `❌ Failed to send test goal: ${error.message}`
       });
     }
   }
