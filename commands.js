@@ -82,12 +82,22 @@ const NEXT_LEAFS_GAME_COMMAND = {
   contexts: [0, 1, 2],
 };
 
+// Command to send a test goal notification
+const TEST_GOAL_COMMAND = {
+  name: 'test-goal',
+  description: 'Send a test goal notification to see what goal updates look like',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 1, 2],
+};
+
 const ALL_COMMANDS = [
   TEST_COMMAND, 
   CHALLENGE_COMMAND,
   SETUP_LEAFS_UPDATES_COMMAND,
   STOP_LEAFS_UPDATES_COMMAND,
-  NEXT_LEAFS_GAME_COMMAND
+  NEXT_LEAFS_GAME_COMMAND,
+  TEST_GOAL_COMMAND
 ];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
