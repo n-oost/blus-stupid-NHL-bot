@@ -120,6 +120,62 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
       }
     }
 
+    // "test-goal" command
+    if (name === 'test-goal') {
+      // Create a test goal embed
+      const testGoalEmbed = {
+        title: '🚨 GOAL! Toronto Maple Leafs',
+        color: 0x4CAF50, // Green for goals
+        description: 'This is a test goal notification to demonstrate what real goal updates will look like.',
+        fields: [
+          {
+            name: '⚡ Scorer',
+            value: 'Auston Matthews (#34)',
+            inline: true
+          },
+          {
+            name: '🎯 Assists',
+            value: 'Mitchell Marner (#16), Morgan Rielly (#44)',
+            inline: true
+          },
+          {
+            name: '💪 Strength',
+            value: 'Even Strength',
+            inline: true
+          },
+          {
+            name: '🕐 Time',
+            value: 'P2 12:34',
+            inline: true
+          },
+          {
+            name: '📊 Score',
+            value: 'TOR 3 - 2 BOS',
+            inline: true
+          },
+          {
+            name: '🏒 Shot Type',
+            value: 'Wrist Shot',
+            inline: true
+          }
+        ],
+        thumbnail: {
+          url: 'https://assets.nhle.com/logos/nhl/svg/TOR_light.svg'
+        },
+        footer: {
+          text: 'Test Goal Notification'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          embeds: [testGoalEmbed]
+        }
+      });
+    }
+
     console.error(`unknown command: ${name}`);
     return res.status(400).json({ error: 'unknown command' });
   }
